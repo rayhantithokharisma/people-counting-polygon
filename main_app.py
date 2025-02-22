@@ -15,6 +15,8 @@ from polygon_person import detect
 import uuid
 
 from fastapi import FastAPI, BackgroundTasks, HTTPException, Request
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from yolov5.utils.general import check_img_size
 from typing import List, Tuple
 import uvicorn
@@ -28,6 +30,7 @@ file_path = 'log_file.parquet'
 result_path = 'result_file.parquet'
 
 app = FastAPI()
+os.makedirs("static", exist_ok=True)
 
 class TaskRequest(BaseModel):
     url_param: str
@@ -199,7 +202,7 @@ def calculate_person(vid_file_path:str = 'cctv-temp-download-merged',
         "weights": "yolov5/weights/yolov5s.pt",
         "source": f"{vid_file_path}",
         "img-size": check_img_size(1080),
-        "device": "0",
+        "device": "cpu",
         "save-img": False,
         "save-txt": False,
         "classes": [0],
@@ -354,27 +357,16 @@ async def get_result(request: Request):
 
 
     plt.tight_layout()
-    plt.savefig("combined_plot.png", dpi=300, format="png")
-
-    with open("combined_plot.png", "rb") as file:
-        response = requests.post(
-            "https://catbox.moe/user/api.php",
-            data={"reqtype": "fileupload"},
-            files={"fileToUpload": file}
-        )
-
-    time.sleep(3)
-
-    if response.status_code == 200:
-        dashboard_url = response.text.strip()
-    else:
-        dashboard_url = "Fail Upload - " + response.text
+    plt.savefig("static/combined_plot.png", dpi=300, format="png")
+    time.sleep(1)
+    app.mount("/static", StaticFiles(directory="static"), name="static")
+    time.sleep(1)
 
     return {
         "last_10_mins_avg": str(last_10_mins_avg),
         "current_date_total_detected_people": str(total_detected_people),
         "latest_video_datetime": str(last_datetime),
-        "dashboard_url": dashboard_url
+        "dashboard_url": "http://localhost:8000/static/combined_plot.png"
     }
 
 
